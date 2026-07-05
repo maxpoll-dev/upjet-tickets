@@ -33,7 +33,7 @@ services:
     restart: unless-stopped
     env_file: ./backend/.env
     environment:
-      DB_DATABASE: ${POSTGRES_USER}
+      DB_DATABASE: ${POSTGRES_DB}
       DB_USERNAME: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       APP_ENV: production
