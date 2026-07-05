@@ -1,21 +1,27 @@
-DC = docker compose -f docker-compose.yml -f docker-compose.dev.yml
+.PHONY: up dev down clear logs sh cert
 
-.PHONY: up down clear logs sh cert
-
+# PRODUCTION
 up:
-	$(DC) up --build
+	docker compose -f docker-compose.yml up --build
 
+# DEVELOPMENT
+dev:
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+# CORE
 down:
-	$(DC) down
-	
+	docker compose down
+
 clear:
-	$(DC) down -v
+	docker compose down -v
 
 logs:
-	$(DC) logs -f
+	docker compose logs -f $(s)
 
 sh:
-	$(DC) exec backend sh
+	@test -n "$(s)" || { echo "Usage: make sh s=<service>"; exit 1; }
+	docker compose exec $(s) sh
 
+# UTILS
 cert:
 	mkcert -cert-file nginx/certs/localhost.pem -key-file nginx/certs/localhost-key.pem localhost 127.0.0.1 ::1
