@@ -1,15 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Card, Button, Typography, Tag, Spin, message, Row, Col, Divider } from 'antd'
+import { App, Card, Button, Typography, Tag, Spin, Row, Col, Divider } from 'antd'
 import api from '@/lib/api'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
 
 interface Ticket {
-    seat_number: string
+    seat_number: number
     movie: string
     room: string
     starts_at: string
@@ -26,7 +26,11 @@ interface Order {
     tickets: Ticket[]
 }
 
-export default function OrderPage({ params }: { params: { id: string } }) {
+const REFRESH_DELAY = 500
+
+export default function OrderPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params)
+    const { message } = App.useApp()
     const searchParams = useSearchParams()
     const token = searchParams.get('token')
 
@@ -35,27 +39,13 @@ export default function OrderPage({ params }: { params: { id: string } }) {
     const [paying, setPaying] = useState(false)
 
     useEffect(() => {
-        if (!token) {
-            void message.error('Заказ не найден')
-            return
-        }
+        if (!token) return
 
-        void fetchOrder()
-    }, [params.id, token])
-
-    const fetchOrder = async () => {
-        try {
-            const res = await api.get(`/orders/${params.id}`, {
-                params: { token },
-            })
-
-            setOrder(res.data.data)
-        } catch (err: any) {
-            message.error(err.message || 'Не удалось загрузить заказ')
-        } finally {
-            setLoading(false)
-        }
-    }
+        api.get(`/orders/${id}`, { params: { token } })
+            .then(res => setOrder(res.data.data))
+            .catch((err: { message?: string }) => message.error(err.message || 'Не удалось загрузить заказ'))
+            .finally(() => setLoading(false))
+    }, [id, token, message])
 
     const handlePay = async () => {
         if (!order || !token) return
@@ -63,24 +53,30 @@ export default function OrderPage({ params }: { params: { id: string } }) {
         setPaying(true)
 
         try {
-            const res = await api.post(`/orders/${order.order_id}/pay`, {}, {
-                params: { token },
-            });
+            await api.post(`/orders/${order.order_id}/pay`, {}, { params: { token } })
+            message.info('Оплата обрабатывается…')
 
-            message.success('Оплата прошла успешно!');
+            await new Promise(resolve => setTimeout(resolve, REFRESH_DELAY))
+
+            const res = await api.get(`/orders/${id}`, { params: { token } })
             setOrder(res.data.data)
-        } catch (err: any) {
-            message.error(err.message || 'Ошибка при оплате')
+        } catch (err: unknown) {
+            const msg = (err as { message?: string }).message
+            message.error(msg || 'Ошибка при оплате')
         } finally {
             setPaying(false)
         }
     }
 
+    if (!token) return <div className="text-center py-20 text-red-500">Заказ не найден или токен недействителен</div>
     if (loading) return <Spin size="large" fullscreen />
     if (!order) return <div className="text-center py-20 text-red-500">Заказ не найден или токен недействителен</div>
 
-    const isExpired = dayjs(order.expires_at).isBefore(dayjs())
     const isPaid = order.status === 'paid'
+    const isPending = order.status === 'pending'
+    const isExpired = order.status === 'expired'
+        || (order.status === 'reserved' && dayjs(order.expires_at).isBefore(dayjs()))
+    const canPay = order.status === 'reserved' && !isExpired
 
     return (
         <div className="max-w-2xl mx-auto p-6">
@@ -88,10 +84,10 @@ export default function OrderPage({ params }: { params: { id: string } }) {
                 <div className="text-center mb-8">
                     <Title level={3}>Заказ №{order.order_id}</Title>
                     <Tag
-                        color={isPaid ? "green" : isExpired ? "red" : "processing"}
+                        color={isPaid ? "green" : isPending ? "processing" : isExpired ? "red" : "gold"}
                         className="text-lg px-6 py-1.5"
                     >
-                        {isPaid ? "Оплачено" : isExpired ? "Истекло время" : "Ожидает оплаты"}
+                        {isPaid ? "Оплачено" : isPending ? "Оплата обрабатывается" : isExpired ? "Истекло время" : "Ожидает оплаты"}
                     </Tag>
                 </div>
 
@@ -104,7 +100,7 @@ export default function OrderPage({ params }: { params: { id: string } }) {
                     </Col>
                     <Col span={12}>
                         <Text type="secondary">Сумма к оплате</Text>
-                        <p className="text-3xl font-bold text-white">
+                        <p className="text-3xl font-bold">
                             {order.amount_total} {order.currency}
                         </p>
                     </Col>
@@ -133,7 +129,7 @@ export default function OrderPage({ params }: { params: { id: string } }) {
 
                 <Divider />
 
-                {!isPaid && !isExpired && (
+                {canPay && (
                     <Button
                         type="primary"
                         size="large"
@@ -146,6 +142,13 @@ export default function OrderPage({ params }: { params: { id: string } }) {
                     </Button>
                 )}
 
+                {isPending && (
+                    <div className="text-center py-10">
+                        <Spin />
+                        <p className="text-xl mt-4">Оплата обрабатывается… Обновите страницу, чтобы проверить статус.</p>
+                    </div>
+                )}
+
                 {isPaid && (
                     <div className="text-center py-10">
                         <Tag color="green" className="text-2xl px-10 py-3">
@@ -154,9 +157,10 @@ export default function OrderPage({ params }: { params: { id: string } }) {
                     </div>
                 )}
 
-                {isExpired && !isPaid && (
+                {isExpired && (
                     <div className="text-center py-10 text-red-500">
-                        <p className="text-xl">Время на оплату истекло</p>
+                        <p className="text-xl font-semibold">Время истекло</p>
+                        <p className="text-base mt-2">Время резерва закончилось — заказ больше не действителен. Оформите новую бронь.</p>
                     </div>
                 )}
             </Card>

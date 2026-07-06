@@ -29,7 +29,7 @@ export default function Home() {
 
     return (
         <div className="p-8">
-            <Title level={2} className="mb-8 text-white">Фильмы</Title>
+            <Title level={2} className="mb-8">Фильмы</Title>
             <Row gutter={[16, 16]}>
                 {movies.map(movie => (
                     <Col key={movie.id} xs={24} sm={12} lg={8}>

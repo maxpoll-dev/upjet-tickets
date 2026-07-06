@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Modal, Button, Typography, message, Row, Col, Tag, Input, Form } from 'antd'
+import { useEffect, useState } from 'react'
+import { App, Modal, Button, Typography, Row, Col, Input, Form, Spin } from 'antd'
 import api from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
@@ -10,40 +10,47 @@ const { Text } = Typography
 
 interface Seat {
     id: number
-    number: string
+    number: number
     status: 'free' | 'occupied'
 }
 
-interface Session {
+interface SessionDetail {
     id: number
     starts_at: string
     price: number
+    currency: string
+    movie: string
     room: string
-    movie?: { title: string }
     seats: Seat[]
 }
 
 interface Props {
     open: boolean
-    session: Session | null
+    sessionId: number | null
     onClose: () => void
 }
 
-export default function SeatSelectionModal({ open, session, onClose }: Props) {
-    const [form] = Form.useForm()
+export default function SeatSelectionModal({ open, sessionId, onClose }: Props) {
+    const { message } = App.useApp()
+    const [session, setSession] = useState<SessionDetail | null>(null)
     const [selectedSeats, setSelectedSeats] = useState<number[]>([])
-    const [loading, setLoading] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
-        if (!open) {
-            form.resetFields()
-            setSelectedSeats([])
-        }
-    }, [open])
+        if (!open || !sessionId) return
+
+        api.get(`/sessions/${sessionId}`)
+            .then(res => setSession(res.data.data))
+            .catch((err: { message?: string }) => {
+                message.error(err.message || 'Не удалось загрузить сеанс')
+                onClose()
+            })
+    }, [open, sessionId, onClose, message])
 
     const toggleSeat = (seatId: number) => {
-        if (!(session) || session.seats.find(s => s.id === seatId)?.status === 'occupied') return
+        const seat = session?.seats.find(s => s.id === seatId)
+        if (!seat || seat.status === 'occupied') return
 
         setSelectedSeats(prev =>
             prev.includes(seatId)
@@ -55,7 +62,7 @@ export default function SeatSelectionModal({ open, session, onClose }: Props) {
     const handleBook = async (values: { email: string }) => {
         if (!session || selectedSeats.length === 0) return
 
-        setLoading(true)
+        setSubmitting(true)
 
         try {
             const response = await api.post('/orders', {
@@ -70,99 +77,103 @@ export default function SeatSelectionModal({ open, session, onClose }: Props) {
             onClose()
 
             router.push(`/orders/${order.order_id}?token=${order.access_token}`)
-        } catch (err: any) {
-            message.error(err.message || 'Не удалось создать бронь')
+        } catch (err: unknown) {
+            const msg = (err as { message?: string }).message
+            message.error(msg || 'Не удалось создать бронь')
         } finally {
-            setLoading(false)
+            setSubmitting(false)
         }
     }
 
-    if (!session) return null
-
-    const totalPrice = selectedSeats.length * session.price
+    const totalPrice = session ? selectedSeats.length * session.price : 0
 
     return (
         <Modal
-            title={`Выбор мест — ${session.movie?.title}`}
+            title={session ? `Выбор мест — ${session.movie}` : 'Выбор мест'}
             open={open}
             onCancel={onClose}
+            afterClose={() => {
+                setSession(null)
+                setSelectedSeats([])
+            }}
             footer={null}
             width={750}
             centered
         >
-            <div className="mb-6">
-                <Text strong>
-                    {dayjs(session.starts_at).format('DD.MM.YYYY HH:mm')} • Зал: {session.room}
-                </Text>
-            </div>
-
-            <div className="bg-gray-900 p-6 rounded-xl mb-6">
-                <Row gutter={[12, 12]} justify="center">
-                    {session.seats.map((seat) => {
-                        const isSelected = selectedSeats.includes(seat.id)
-                        const isOccupied = seat.status === 'occupied'
-
-                        return (
-                            <Col key={seat.id}>
-                                <Button
-                                    type={isSelected ? "primary" : "default"}
-                                    danger={isOccupied}
-                                    disabled={isOccupied}
-                                    onClick={() => toggleSeat(seat.id)}
-                                    className="w-14 h-14 text-base font-semibold"
-                                >
-                                    {seat.number}
-                                </Button>
-                            </Col>
-                        );
-                    })}
-                </Row>
-            </div>
-
-            <div className="mb-6">
-                <div className="flex justify-between items-center mb-2">
-                    <Text strong>Выбрано мест: {selectedSeats.length}</Text>
-                    {selectedSeats.length > 0 && (
-                        <Text strong style={{ fontSize: '18px' }}>
-                            {totalPrice} ₽
-                        </Text>
-                    )}
+            {!session ? (
+                <div className="text-center py-10">
+                    <Spin />
                 </div>
-                <Tag color="green">Свободно</Tag>
-                <Tag color="red">Занято</Tag>
-            </div>
+            ) : (
+                <>
+                    <div className="mb-6">
+                        <Text strong>
+                            {dayjs(session.starts_at).format('DD.MM.YYYY HH:mm')} • Зал: {session.room}
+                        </Text>
+                    </div>
 
-            <Form
-                form={form}
-                onFinish={handleBook}
-                layout="vertical"
-            >
-                <Form.Item
-                    label="Email для отправки билетов и информации о заказе"
-                    name="email"
-                    rules={[
-                        { required: true, message: 'Пожалуйста, введите email' },
-                        { type: 'email', message: 'Введите корректный email адрес' },
-                    ]}
-                >
-                    <Input
-                        size="large"
-                        placeholder="your@email.com"
-                        autoFocus
-                    />
-                </Form.Item>
+                    <div className="bg-gray-100 p-6 rounded-xl mb-6">
+                        <Row gutter={[12, 12]} justify="center">
+                            {session.seats.map((seat) => {
+                                const isSelected = selectedSeats.includes(seat.id)
+                                const isOccupied = seat.status === 'occupied'
 
-                <Button
-                    type="primary"
-                    size="large"
-                    block
-                    htmlType="submit"
-                    loading={loading}
-                    disabled={selectedSeats.length === 0}
-                >
-                    Забронировать {selectedSeats.length > 0 ? `(${selectedSeats.length} мест)` : ''}
-                </Button>
-            </Form>
+                                return (
+                                    <Col key={seat.id}>
+                                        <Button
+                                            type={isSelected ? 'primary' : 'default'}
+                                            danger={isOccupied}
+                                            disabled={isOccupied}
+                                            onClick={() => toggleSeat(seat.id)}
+                                            className="w-14 h-14 text-base font-semibold"
+                                        >
+                                            {seat.number}
+                                        </Button>
+                                    </Col>
+                                )
+                            })}
+                        </Row>
+                    </div>
+
+                    <div className="mb-6">
+                        <div className="flex justify-between items-center">
+                            <Text strong>Выбрано мест: {selectedSeats.length}</Text>
+                        </div>
+                        <div className="mb-2">
+                            <Text strong>Цена: </Text>
+                            {selectedSeats.length > 0 && (
+                                <Text strong style={{ fontSize: '14px' }}>
+                                    {totalPrice} {session.currency}
+                                </Text>
+                            )}
+                        </div>
+                    </div>
+
+                    <Form onFinish={handleBook} layout="vertical">
+                        <Form.Item
+                            label="Email для отправки билетов и информации о заказе"
+                            name="email"
+                            rules={[
+                                { required: true, message: 'Пожалуйста, введите email' },
+                                { type: 'email', message: 'Введите корректный email адрес' },
+                            ]}
+                        >
+                            <Input size="large" placeholder="your@email.com" autoFocus />
+                        </Form.Item>
+
+                        <Button
+                            type="primary"
+                            size="large"
+                            block
+                            htmlType="submit"
+                            loading={submitting}
+                            disabled={selectedSeats.length === 0}
+                        >
+                            Забронировать
+                        </Button>
+                    </Form>
+                </>
+            )}
         </Modal>
     )
 }
