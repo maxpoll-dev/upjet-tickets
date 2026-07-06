@@ -1,4 +1,4 @@
-.PHONY: up dev down clear logs sh cert
+.PHONY: up dev down clear logs sh art cert
 
 # PRODUCTION
 up:
@@ -21,6 +21,10 @@ logs:
 sh:
 	@test -n "$(s)" || { echo "Usage: make sh s=<service>"; exit 1; }
 	docker compose exec $(s) sh
+
+art:
+	@test -n "$(a)" || { echo "Usage: make art a=<artisan command>"; exit 1; }
+	docker compose exec -u $(shell id -u):$(shell id -g) backend php artisan $(a)
 
 # UTILS
 cert:
