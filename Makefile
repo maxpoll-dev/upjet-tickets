@@ -18,6 +18,12 @@ clear:
 logs:
 	docker compose logs -f $(s)
 
+migrate:
+	docker compose exec -u $(shell id -u):$(shell id -g) backend php artisan migrate
+
+seed:
+	docker compose exec -u $(shell id -u):$(shell id -g) backend php artisan db:seed
+
 sh:
 	@test -n "$(s)" || { echo "Usage: make sh s=<service>"; exit 1; }
 	docker compose exec $(s) sh
@@ -25,7 +31,3 @@ sh:
 art:
 	@test -n "$(a)" || { echo "Usage: make art a=<artisan command>"; exit 1; }
 	docker compose exec -u $(shell id -u):$(shell id -g) backend php artisan $(a)
-
-# UTILS
-cert:
-	mkcert -cert-file nginx/certs/localhost.pem -key-file nginx/certs/localhost-key.pem localhost 127.0.0.1 ::1
