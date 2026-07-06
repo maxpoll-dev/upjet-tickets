@@ -19,6 +19,16 @@ services:
       - ./backend:/app
     command: php artisan queue:listen --tries=3
 
+  scheduler:
+    build:
+      target: dev
+    environment:
+      APP_ENV: local
+      APP_DEBUG: true
+    volumes:
+      - ./backend:/app
+    command: php artisan schedule:work
+
   frontend:
     build:
       target: dev
