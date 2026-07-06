@@ -13,7 +13,7 @@ class MovieController
         return MovieResource::collection($movies->findAll());
     }
 
-    public function findById(int $id, MovieService $movies): MovieResource
+    public function findById(string $id, MovieService $movies): MovieResource
     {
         return MovieResource::make($movies->findById($id));
     }

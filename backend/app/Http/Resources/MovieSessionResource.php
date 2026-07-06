@@ -18,6 +18,7 @@ class MovieSessionResource extends JsonResource
             'id' => $this->id,
             'starts_at' => $this->starts_at,
             'price' => $this->price,
+            'currency' => $this->currency,
             'movie' => $this->whenLoaded('movie', fn () => $this->movie->title),
             'room' => $this->whenLoaded('room', fn () => $this->room->name),
             'seats' => $this->when($this->seatsLoaded(), fn () => $this->seatMap()),
