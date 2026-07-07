@@ -3,10 +3,11 @@
 ### Команды bash
 
 1) Скопировать конфиги - ``cp .env.example .env; cp backend/.env.example backend/.env; cp frontend/.env.example frontend/.env``
-2) Поднять докер - ``make dev``
-3) Запустить миграции -  ``make migrate``
-4) Запустить сидэр -  ``make seed``
-5) Открыть http://localhost:3000/
+2) Установить зависимости бэкенда - ``make install``
+3) Поднять докер - ``make dev``
+4) Запустить миграции -  ``make migrate``
+5) Запустить сидэр -  ``make seed``
+6) Открыть http://localhost:3000/
 
 ### Комментарий
 

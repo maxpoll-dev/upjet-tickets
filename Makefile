@@ -1,4 +1,4 @@
-.PHONY: up dev down clear logs sh art cert
+.PHONY: up dev down clear logs sh art cert install
 
 # PRODUCTION
 up:
@@ -7,6 +7,10 @@ up:
 # DEVELOPMENT
 dev:
 	docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build --force-recreate
+
+# DEPS
+install:
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml run --rm --no-deps -u $(shell id -u):$(shell id -g) -e COMPOSER_HOME=/tmp/composer backend composer install
 
 # CORE
 down:
