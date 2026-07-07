@@ -26,8 +26,6 @@ interface Order {
     tickets: Ticket[]
 }
 
-const REFRESH_DELAY = 500
-
 export default function OrderPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
     const { message } = App.useApp()
@@ -53,13 +51,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         setPaying(true)
 
         try {
-            await api.post(`/orders/${order.order_id}/pay`, {}, { params: { token } })
+            const res = await api.post(`/orders/${order.order_id}/pay`, {}, { params: { token } })
+            setOrder({ ...order, status: res.data.data.status })
             message.info('Оплата обрабатывается…')
-
-            await new Promise(resolve => setTimeout(resolve, REFRESH_DELAY))
-
-            const res = await api.get(`/orders/${id}`, { params: { token } })
-            setOrder(res.data.data)
         } catch (err: unknown) {
             const msg = (err as { message?: string }).message
             message.error(msg || 'Ошибка при оплате')
@@ -87,7 +81,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                         color={isPaid ? "green" : isPending ? "processing" : isExpired ? "red" : "gold"}
                         className="text-lg px-6 py-1.5"
                     >
-                        {isPaid ? "Оплачено" : isPending ? "Оплата обрабатывается" : isExpired ? "Истекло время" : "Ожидает оплаты"}
+                        {isPaid ? "Оплачено" : isPending ? "Оплата обрабатывается" : isExpired ? "Время истекло" : "Ожидает оплаты"}
                     </Tag>
                 </div>
 
@@ -145,7 +139,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
                 {isPending && (
                     <div className="text-center py-10">
                         <Spin />
-                        <p className="text-xl mt-4">Оплата обрабатывается… Обновите страницу, чтобы проверить статус.</p>
+                        <p className="text-xl mt-4">Оплата обрабатывается…</p>
                     </div>
                 )}
 

@@ -78,8 +78,13 @@ export default function SeatSelectionModal({ open, sessionId, onClose }: Props) 
 
             router.push(`/orders/${order.order_id}?token=${order.access_token}`)
         } catch (err: unknown) {
-            const msg = (err as { message?: string }).message
-            message.error(msg || 'Не удалось создать бронь')
+            const e = err as { code?: string; message?: string }
+            if (e.code === 'SEATS_TAKEN') {
+                const res = await api.get(`/sessions/${session.id}`)
+                setSession(res.data.data)
+                setSelectedSeats([])
+            }
+            message.error(e.message || 'Не удалось создать бронь')
         } finally {
             setSubmitting(false)
         }
