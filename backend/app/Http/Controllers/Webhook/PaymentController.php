@@ -25,7 +25,7 @@ class PaymentController
 
         $order = Order::find($request->input('order_id'));
 
-        if ($order !== null && $order->status === OrderStatus::RESERVED) {
+        if ($order !== null && $order->status === OrderStatus::PENDING) {
             $order->update(['status' => OrderStatus::PAID, 'paid_at' => now()]);
         }
 

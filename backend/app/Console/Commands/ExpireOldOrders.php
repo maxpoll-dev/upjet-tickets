@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\OrderStatus;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -18,14 +19,14 @@ class ExpireOldOrders extends Command
      */
     public function handle()
     {
-        $expiredOrders = Order::where('status', 'reserved')
+        $expiredOrders = Order::where('status', OrderStatus::RESERVED)
             ->where('expires_at', '<', now())
             ->limit(100)
             ->get();
 
         foreach ($expiredOrders as $order) {
             DB::transaction(function () use ($order) {
-                $order->update(['status' => 'expired']);
+                $order->update(['status' => OrderStatus::EXPIRED]);
                 $order->tickets()->delete();
             });
         }
