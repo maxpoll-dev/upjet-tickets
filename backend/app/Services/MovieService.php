@@ -10,6 +10,7 @@ class MovieService
     public function findAll(): Collection {
         return Movie::query()
             ->select('id', 'title')
+            ->whereHas('movieSessions', fn ($q) => $q->whereDate('starts_at', '>=', today()))
             ->get();
     }
 
