@@ -40,7 +40,9 @@ services:
       - /app/.next
 
   nginx:
-    volumes:
+    image: nginx:alpine
+    volumes: !override
       - ./nginx/default.dev.conf:/etc/nginx/conf.d/default.conf:ro
     ports: !override
       - "3000:80"
+    env_file: !override ''
